@@ -15,10 +15,23 @@ import androidx.activity.enableEdgeToEdge
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.view.ViewCompat
 import androidx.core.view.WindowInsetsCompat
+import kotlin.math.roundToInt
 
 class MainActivity : AppCompatActivity() {
     private lateinit var webView: WebView
     private var pageReady = false
+    private var insetTop = 0
+    private var insetRight = 0
+    private var insetBottom = 0
+    private var insetLeft = 0
+
+    private fun publishInsets() {
+        if (!pageReady || !::webView.isInitialized) return
+        webView.evaluateJavascript(
+            "window.__movementInsets&&window.__movementInsets($insetTop,$insetRight,$insetBottom,$insetLeft)",
+            null,
+        )
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -28,13 +41,19 @@ class MainActivity : AppCompatActivity() {
         )
         setContentView(R.layout.activity_main)
         webView = findViewById(R.id.webView)
-        ViewCompat.setOnApplyWindowInsetsListener(webView) { view, insets ->
+        // WebView sizes the document to the full view, so View padding never moves
+        // position:fixed chrome. Hand the insets to the page as CSS pixels instead.
+        ViewCompat.setOnApplyWindowInsetsListener(webView) { _, insets ->
             val bars = insets.getInsets(
                 WindowInsetsCompat.Type.systemBars() or
-                    WindowInsetsCompat.Type.displayCutout() or
-                    WindowInsetsCompat.Type.ime(),
+                    WindowInsetsCompat.Type.displayCutout(),
             )
-            view.setPadding(bars.left, bars.top, bars.right, bars.bottom)
+            val density = resources.displayMetrics.density.coerceAtLeast(1f)
+            insetTop = (bars.top / density).roundToInt()
+            insetRight = (bars.right / density).roundToInt()
+            insetBottom = (bars.bottom / density).roundToInt()
+            insetLeft = (bars.left / density).roundToInt()
+            publishInsets()
             insets
         }
         if (applicationInfo.flags and ApplicationInfo.FLAG_DEBUGGABLE != 0) {
@@ -47,6 +66,7 @@ class MainActivity : AppCompatActivity() {
                 super.onPageFinished(view, url)
                 pageReady = true
                 view?.evaluateJavascript(BACK_STACK_SCRIPT, null)
+                publishInsets()
             }
 
             override fun shouldOverrideUrlLoading(

@@ -12,6 +12,8 @@
 :root{
   --bg:#F4F1EB;--s1:#FFFFFF;--s2:#F7F5F0;--tx:#1C1917;--mu:#78716C;--pr:#0F766E;
   --sage:#E3EDE6;--sage2:#C9DCCF;--wn:#B45309;--ln:#E7E2D9;--ink:#44403C;--soft:#57534E;
+  --safe-top:env(safe-area-inset-top,0px);--safe-right:env(safe-area-inset-right,0px);
+  --safe-bottom:env(safe-area-inset-bottom,0px);--safe-left:env(safe-area-inset-left,0px);
   color-scheme:light;
 }
 *{box-sizing:border-box}
@@ -29,7 +31,7 @@ button svg,.gear svg,.part svg,.cta svg{pointer-events:none}
 .num{font-variant-numeric:tabular-nums}
 .mu{color:var(--mu)}
 .ink{color:var(--ink)}
-main{padding:0 16px 92px}
+main{padding:var(--safe-top) calc(16px + var(--safe-right)) calc(92px + var(--safe-bottom)) calc(16px + var(--safe-left))}
 .view{display:none}
 .view.active{display:block}
 .panel{display:none}
@@ -110,7 +112,7 @@ h3{margin:0;font-size:16px;font-weight:700}
   padding:0 12px;box-shadow:inset 0 0 0 1px var(--ln);white-space:nowrap;
 }
 .chip.on{background:var(--pr);color:#fff;box-shadow:none}
-.train-chips{position:sticky;top:0;z-index:4;background:var(--bg);padding:0 0 12px;margin-top:-4px}
+.train-chips{position:sticky;top:var(--safe-top);z-index:4;background:var(--bg);padding:0 0 12px;margin-top:-4px}
 .train-chips .chip{flex:1;padding:0 4px;font-size:13px}
 .phases{display:flex;gap:4px;margin:16px 0 6px}
 .ph{display:flex;flex-direction:column;gap:4px;min-width:0}
@@ -292,12 +294,15 @@ select.sym{
 .cline .lb{width:68px;text-align:right;color:var(--mu);flex:none}
 .link-row{width:100%;display:flex;align-items:center;gap:12px;text-align:left;color:var(--tx)}
 #settings{
-  display:none;position:fixed;inset:0;z-index:30;background:var(--bg);overflow:auto;padding:0 16px 28px;
+  display:none;position:fixed;inset:0;z-index:30;background:var(--bg);overflow:auto;
+  padding:var(--safe-top) calc(16px + var(--safe-right)) calc(28px + var(--safe-bottom)) calc(16px + var(--safe-left));
 }
 body.settings-open #settings{display:block}
 body.settings-open #nav{display:none}
 #nav{
-  position:fixed;left:0;right:0;bottom:0;height:64px;display:grid;grid-template-columns:repeat(4,1fr);
+  position:fixed;left:0;right:0;bottom:0;height:calc(64px + var(--safe-bottom));
+  padding:0 var(--safe-right) var(--safe-bottom) var(--safe-left);
+  display:grid;grid-template-columns:repeat(4,1fr);
   background:#fff;z-index:10;box-shadow:0 -1px 0 var(--ln),0 -6px 18px rgba(28,25,23,.04);
 }
 .tab{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;color:var(--mu);min-height:48px}
@@ -809,6 +814,13 @@ body.settings-open #nav{display:none}
 </div>
 
 <script>
+window.__movementInsets = function (top, right, bottom, left) {
+  const s = document.documentElement.style;
+  s.setProperty('--safe-top', top + 'px');
+  s.setProperty('--safe-right', right + 'px');
+  s.setProperty('--safe-bottom', bottom + 'px');
+  s.setProperty('--safe-left', left + 'px');
+};
 const LB_PER_KG = 2.2046226218;
 const DEFAULT_KG = 135;
 const DEFAULT_HEIGHT_CM = 179;
