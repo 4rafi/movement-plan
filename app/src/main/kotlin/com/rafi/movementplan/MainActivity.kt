@@ -1,10 +1,12 @@
 package com.rafi.movementplan
 
 import android.content.pm.ApplicationInfo
+import android.os.Build
 import android.os.Bundle
 import android.view.ViewGroup
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
+import android.webkit.WebSettings
 import android.webkit.WebView
 import android.webkit.WebViewClient
 import androidx.activity.SystemBarStyle
@@ -21,8 +23,8 @@ class MainActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge(
-            statusBarStyle = SystemBarStyle.dark(SCRIM),
-            navigationBarStyle = SystemBarStyle.dark(SCRIM),
+            statusBarStyle = SystemBarStyle.light(SCRIM, SCRIM),
+            navigationBarStyle = SystemBarStyle.light(SCRIM, SCRIM),
         )
         setContentView(R.layout.activity_main)
         webView = findViewById(R.id.webView)
@@ -66,6 +68,12 @@ class MainActivity : AppCompatActivity() {
             useWideViewPort = true
             mediaPlaybackRequiresUserGesture = true
         }
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            webView.settings.isAlgorithmicDarkeningAllowed = false
+        } else if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.Q) {
+            @Suppress("DEPRECATION")
+            webView.settings.forceDark = WebSettings.FORCE_DARK_OFF
+        }
         val restored = savedInstanceState?.let { webView.restoreState(it) } != null
         if (!restored) {
             webView.loadUrl(ASSET_URL)
@@ -105,12 +113,12 @@ class MainActivity : AppCompatActivity() {
     }
 
     companion object {
-        private const val SCRIM = 0xFF0F172A.toInt()
+        private const val SCRIM = 0xFFF4F1EB.toInt()
         private const val ASSET_URL = "file:///android_asset/movement_plan.html"
         private const val BACK_STACK_SCRIPT = """
             (function () {
               if (window.__movementBack) return;
-              var stack = ['tread'];
+              var stack = ['home'];
               var applying = false;
               var nav = document.getElementById('nav');
               if (!nav) {
