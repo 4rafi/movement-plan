@@ -5,9 +5,9 @@ Android app for the treadmill, strength, and digestion planner. The UI is `app/s
 - minSdk 26
 - targetSdk 36
 - compileSdk 37
-- versionName 1.0.2 (versionCode 3)
+- versionName 1.0.3 (versionCode 4)
 
-The Weight tab logs kilograms on the device, draws them as a line, and points the header weight and BMI gauge at the latest entry. Height stays 179 cm. The log starts empty.
+Daylight UI with Home, Train, Track, and Plan. Settings stores height (default 179 cm) and an optional goal weight on the device. The weight log stays on the device and starts empty. Until the first entry, Home shows 135 kg at 179 cm (BMI 42.1). Goal lines stay hidden until a goal is set.
 
 ## Build
 
