@@ -68,7 +68,12 @@ tr.hl{background:#38bdf822}
 .big{font-size:2.2rem;font-weight:700;text-align:center;font-variant-numeric:tabular-nums}
 .row{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:8px 0}
 input[type=range]{width:100%;accent-color:var(--acc2)}
-input[type=number],select{background:#0f172a;color:var(--text);border:1px solid #334155;border-radius:8px;padding:7px 10px;font-size:.95rem;width:110px}
+input[type=number],input[type=date],select{background:#0f172a;color:var(--text);border:1px solid #334155;border-radius:8px;padding:7px 10px;font-size:.95rem;width:110px}
+input[type=date]{width:auto;color-scheme:dark}
+.wchart{min-height:220px}
+.wchart svg{width:100%;height:220px;display:block}
+.wempty{min-height:220px;display:flex;align-items:center;justify-content:center;text-align:center;color:var(--muted);background:var(--card2);border-radius:12px;padding:18px}
+.wrow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:10px 12px;border-radius:10px;background:var(--card2);margin:6px 0}
 select{width:auto}
 label{font-size:.85rem;color:var(--muted)}
 .zone{padding:12px;border-radius:10px;text-align:center;font-weight:700;transition:.3s}
@@ -103,7 +108,7 @@ footer{text-align:center;color:var(--muted);font-size:.8rem;padding:20px}
  <div class="gauge"><div class="arc"></div><div class="hole"></div><div class="needle" id="needle"></div><div class="bmi" id="bmiText">BMI 0.0</div></div>
  <div class="glabels"><span>15</span><span>25</span><span>30</span><span>35</span><span>40</span><span>50</span></div>
  <div class="stats">
-  <div class="stat"><div class="v" data-count="135" data-suffix=" kg">0</div><div class="l">Weight (298 lb)</div></div>
+  <div class="stat"><div class="v" id="weightStat">0</div><div class="l" id="weightLb">Weight (298 lb)</div></div>
   <div class="stat"><div class="v" data-count="179" data-suffix=" cm">0</div><div class="l">Height (5′10.5″)</div></div>
   <div class="stat"><div class="v" data-count="150" data-suffix=" min">0</div><div class="l">Weekly walking target</div></div>
   <div class="stat"><div class="v" data-count="5" data-suffix=" days">0</div><div class="l">30-min sessions / week</div></div>
@@ -117,6 +122,7 @@ footer{text-align:center;color:var(--muted);font-size:.8rem;padding:20px}
  <button data-tab="res">💪 Resistance</button>
  <button data-tab="dig">🌿 Digestion</button>
  <button data-tab="week">📅 Weekly Plan</button>
+ <button data-tab="weight">⚖️ Weight</button>
  <button data-tab="safe">🛑 Safety</button>
 </nav>
 
@@ -253,6 +259,29 @@ footer{text-align:center;color:var(--muted);font-size:.8rem;padding:20px}
  </div>
 </section>
 
+<!-- ================= WEIGHT ================= -->
+<section id="weight">
+ <div class="card">
+  <h2>Weight recorder</h2>
+  <p class="sub">Log weight in kilograms. Pounds sit beside it, the same way the header does. Entries stay on this device.</p>
+  <div class="row">
+   <label>Date <input type="date" id="wDate"></label>
+   <label>Weight (kg) <input type="number" id="wKg" min="20" max="400" step="0.1" inputmode="decimal" placeholder="kg"></label>
+   <div class="pill b" id="wLb">— lb</div>
+   <button class="btn" id="wAdd" type="button">Log weight</button>
+  </div>
+  <p class="sub" id="wMsg"></p>
+ </div>
+ <div class="card">
+  <h2>Weight over time</h2>
+  <div id="wChart" class="wchart"></div>
+ </div>
+ <div class="card">
+  <h2>Entries</h2>
+  <div id="wList"></div>
+ </div>
+</section>
+
 <!-- ================= SAFETY ================= -->
 <section id="safe">
  <div class="card">
@@ -279,10 +308,46 @@ footer{text-align:center;color:var(--muted);font-size:.8rem;padding:20px}
 <footer>Built from your plan · Starting point: 2.0–2.5 mph, flat, 30 min, 5 days/week, "can talk in sentences" effort.</footer>
 
 <script>
-/* ---------- header animations ---------- */
-const bmi=135/((1.79)**2);
-setTimeout(()=>{document.getElementById('needle').style.transform=`rotate(${-90+((bmi-15)/35)*180}deg)`;},300);
-let bv=0;const bt=setInterval(()=>{bv+=bmi/60;if(bv>=bmi){bv=bmi;clearInterval(bt)}document.getElementById('bmiText').textContent='BMI '+bv.toFixed(1)+(bv>=bmi?' · Class III':'')},35);
+/* ---------- header weight + BMI ---------- */
+const HEIGHT_M=1.79;
+const DEFAULT_KG=135;
+const LB_PER_KG=2.2046226218;
+const WEIGHT_KEY='movementPlan.weights.v1';
+const MONTHS=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+function formatKg(kg){const n=Math.round(kg*10)/10;return Number.isInteger(n)?String(n):n.toFixed(1)}
+function kgToLbRounded(kg){return Math.round(kg*LB_PER_KG)}
+function bmiFor(kg){return kg/(HEIGHT_M*HEIGHT_M)}
+function bmiClassName(b){if(b<18.5)return 'Underweight';if(b<25)return 'Normal';if(b<30)return 'Overweight';if(b<35)return 'Class I';if(b<40)return 'Class II';return 'Class III'}
+function needleDeg(b){const c=Math.min(50,Math.max(15,b));return -90+((c-15)/35)*180}
+function todayISO(){const n=new Date();return n.getFullYear()+'-'+String(n.getMonth()+1).padStart(2,'0')+'-'+String(n.getDate()).padStart(2,'0')}
+function formatDisplayDate(iso){const p=iso.split('-').map(Number);if(p.length!==3||!p[0]||!p[1]||!p[2])return iso;return p[2]+' '+MONTHS[p[1]-1]+' '+p[0]}
+function formatShortDate(iso){const p=iso.split('-').map(Number);return p[2]+' '+MONTHS[p[1]-1]}
+function cmpWeight(a,b){if(a.date!==b.date)return a.date<b.date?-1:1;return (a.t||0)-(b.t||0)}
+function latestEntry(list){if(!list.length)return null;return list.reduce((best,e)=>cmpWeight(e,best)>0?e:best)}
+function loadWeights(){try{const raw=localStorage.getItem(WEIGHT_KEY);if(!raw)return [];const arr=JSON.parse(raw);if(!Array.isArray(arr))return [];return arr.filter(e=>e&&typeof e.id==='string'&&/^\d{4}-\d{2}-\d{2}$/.test(e.date)&&typeof e.kg==='number'&&e.kg>=20&&e.kg<=400).map(e=>({id:e.id,t:typeof e.t==='number'?e.t:0,date:e.date,kg:Math.round(e.kg*10)/10}))}catch(err){return []}}
+function saveWeights(list){localStorage.setItem(WEIGHT_KEY,JSON.stringify(list))}
+let weightStatTimer=null,bmiTextTimer=null,needleTimer=null;
+function stopHeaderTimers(){if(weightStatTimer){clearInterval(weightStatTimer);weightStatTimer=null}if(bmiTextTimer){clearInterval(bmiTextTimer);bmiTextTimer=null}if(needleTimer){clearTimeout(needleTimer);needleTimer=null}}
+function applyHeader(kg,animate){
+ stopHeaderTimers();
+ const bmi=bmiFor(kg);
+ const weightEl=document.getElementById('weightStat');
+ const lbEl=document.getElementById('weightLb');
+ const needle=document.getElementById('needle');
+ const bmiText=document.getElementById('bmiText');
+ lbEl.textContent='Weight ('+kgToLbRounded(kg)+' lb)';
+ const finalKg=formatKg(kg)+' kg';
+ const finalBmi='BMI '+bmi.toFixed(1)+' · '+bmiClassName(bmi);
+ const placeNeedle=()=>{needle.style.transform='rotate('+needleDeg(bmi)+'deg)'};
+ if(!animate){weightEl.textContent=finalKg;placeNeedle();bmiText.textContent=finalBmi;return}
+ let v=0;const st=Math.max(1,kg/50);
+ weightStatTimer=setInterval(()=>{v+=st;if(v>=kg){v=kg;clearInterval(weightStatTimer);weightStatTimer=null;weightEl.textContent=finalKg}else weightEl.textContent=Math.round(v)+' kg'},30);
+ needleTimer=setTimeout(()=>{placeNeedle();needleTimer=null},300);
+ let bv=0;
+ bmiTextTimer=setInterval(()=>{bv+=bmi/60;if(bv>=bmi){bv=bmi;clearInterval(bmiTextTimer);bmiTextTimer=null;bmiText.textContent=finalBmi}else bmiText.textContent='BMI '+bv.toFixed(1)},35);
+}
+const startLatest=latestEntry(loadWeights());
+applyHeader(startLatest?startLatest.kg:DEFAULT_KG,true);
 document.querySelectorAll('[data-count]').forEach(el=>{const t=+el.dataset.count,s=el.dataset.suffix;let v=0;const st=Math.max(1,t/50);const iv=setInterval(()=>{v+=st;if(v>=t){v=t;clearInterval(iv)}el.textContent=Math.round(v)+s},30)});
 
 /* ---------- tabs ---------- */
@@ -374,6 +439,104 @@ flowReset.onclick=()=>{clearInterval(fiv);fiv=null;fi=-1;flowRender()};
 /* ---------- week ---------- */
 const today=new Date().getDay();let done=0;
 document.querySelectorAll('#weekTbl tr[data-d]').forEach(r=>{if(+r.dataset.d===today)r.classList.add('today');r.onclick=()=>{const c=r.lastElementChild;if(c.textContent){c.textContent='';done--}else{c.textContent='✅';done++}weekProg.style.width=done/7*100+'%';weekTxt.textContent=`${done} / 7 days completed`}});
+
+/* ---------- weight log ---------- */
+const NS='http://www.w3.org/2000/svg';
+function setWMsg(text,bad){const el=document.getElementById('wMsg');el.textContent=text||'';el.style.color=bad?'var(--danger)':'var(--acc)'}
+function clearNode(node){while(node.firstChild)node.removeChild(node.firstChild)}
+function renderChart(entries){
+ const host=document.getElementById('wChart');
+ clearNode(host);
+ if(!entries.length){
+  const empty=document.createElement('div');
+  empty.className='wempty';
+  empty.textContent='No weights logged yet. Add one above and the line will show up here.';
+  host.appendChild(empty);
+  return;
+ }
+ const sorted=entries.slice().sort(cmpWeight);
+ const W=640,H=220,padL=48,padR=16,padT=22,padB=32;
+ let min=Math.min(...sorted.map(e=>e.kg)),max=Math.max(...sorted.map(e=>e.kg));
+ if(min===max){min-=1;max+=1}
+ const span=max-min;
+ const xAt=i=>sorted.length===1?padL+(W-padL-padR)/2:padL+(i/(sorted.length-1))*(W-padL-padR);
+ const yAt=kg=>padT+(1-(kg-min)/span)*(H-padT-padB);
+ const svg=document.createElementNS(NS,'svg');
+ svg.setAttribute('viewBox','0 0 '+W+' '+H);
+ svg.setAttribute('role','img');
+ svg.setAttribute('aria-label','Line graph of logged weight in kilograms');
+ function el(name,attrs,text){const n=document.createElementNS(NS,name);Object.entries(attrs).forEach(([k,v])=>n.setAttribute(k,v));if(text!=null)n.textContent=text;return n}
+ for(let i=0;i<3;i++){
+  const kg=min+(span*i)/2;
+  const y=yAt(kg);
+  svg.appendChild(el('line',{x1:padL,x2:W-padR,y1:y,y2:y,stroke:'#334155','stroke-width':'1'}));
+  svg.appendChild(el('text',{x:padL-8,y:y+4,'text-anchor':'end',fill:'#94a3b8','font-size':'11','font-family':'system-ui,sans-serif'},formatKg(kg)));
+ }
+ const pts=sorted.map((e,i)=>[xAt(i),yAt(e.kg)]);
+ if(pts.length>1){
+  const line=pts.map((p,i)=>(i?'L':'M')+p[0].toFixed(1)+' '+p[1].toFixed(1)).join(' ');
+  const base=yAt(min);
+  svg.appendChild(el('path',{d:line+' L'+pts[pts.length-1][0].toFixed(1)+' '+base.toFixed(1)+' L'+pts[0][0].toFixed(1)+' '+base.toFixed(1)+' Z',fill:'#38bdf822'}));
+  svg.appendChild(el('path',{d:line,fill:'none',stroke:'#38bdf8','stroke-width':'2.5','stroke-linejoin':'round','stroke-linecap':'round'}));
+ }
+ const labelEvery=Math.max(1,Math.ceil(sorted.length/5));
+ sorted.forEach((e,i)=>{
+  const x=pts[i][0],y=pts[i][1];
+  svg.appendChild(el('circle',{cx:x,cy:y,r:i===sorted.length-1?5:3.5,fill:i===sorted.length-1?'#22c55e':'#38bdf8'}));
+  if(i%labelEvery===0||i===sorted.length-1)svg.appendChild(el('text',{x,y:H-10,'text-anchor':'middle',fill:'#94a3b8','font-size':'11','font-family':'system-ui,sans-serif'},formatShortDate(e.date)));
+ });
+ host.appendChild(svg);
+}
+function renderList(entries){
+ const host=document.getElementById('wList');
+ clearNode(host);
+ if(!entries.length){const p=document.createElement('p');p.className='sub';p.style.margin=0;p.textContent='No entries yet.';host.appendChild(p);return}
+ entries.slice().sort((a,b)=>cmpWeight(b,a)).forEach(e=>{
+  const row=document.createElement('div');row.className='wrow';
+  const info=document.createElement('div');
+  const title=document.createElement('div');title.style.fontWeight='700';title.textContent=formatKg(e.kg)+' kg · '+kgToLbRounded(e.kg)+' lb';
+  const sub=document.createElement('div');sub.style.color='var(--muted)';sub.style.fontSize='.85rem';sub.textContent=formatDisplayDate(e.date);
+  info.append(title,sub);
+  const btn=document.createElement('button');btn.type='button';btn.className='btn red sm';btn.textContent='Delete';
+  btn.onclick=()=>removeWeight(e.id);
+  row.append(info,btn);host.appendChild(row);
+ });
+}
+function renderWeights(list){renderChart(list);renderList(list)}
+function syncHeader(list){const latest=latestEntry(list);applyHeader(latest?latest.kg:DEFAULT_KG,false)}
+function addWeight(){
+ const date=document.getElementById('wDate').value;
+ const kg=Math.round(parseFloat(document.getElementById('wKg').value)*10)/10;
+ if(!/^\d{4}-\d{2}-\d{2}$/.test(date)){setWMsg('Choose a date.',true);return}
+ if(!Number.isFinite(kg)||kg<20||kg>400){setWMsg('Enter a weight between 20 and 400 kg.',true);return}
+ const list=loadWeights();
+ const entry={id:Date.now().toString(36)+Math.random().toString(36).slice(2,6),t:Date.now(),date,kg};
+ list.push(entry);
+ try{saveWeights(list)}catch(err){setWMsg('Could not save on this device.',true);return}
+ document.getElementById('wKg').value='';
+ document.getElementById('wLb').textContent='— lb';
+ renderWeights(list);
+ const latest=latestEntry(list);
+ syncHeader(list);
+ setWMsg(latest&&latest.id===entry.id?'Saved. Header and BMI now use this weight.':'Saved. Header still follows your most recent date.',false);
+}
+function removeWeight(id){
+ const list=loadWeights().filter(e=>e.id!==id);
+ try{saveWeights(list)}catch(err){setWMsg('Could not update the saved log.',true);return}
+ renderWeights(list);
+ syncHeader(list);
+ setWMsg(list.length?'Entry removed.':'Entry removed. Header is back to 135 kg until you log again.',false);
+}
+(function initWeight(){
+ const dateEl=document.getElementById('wDate'),kgEl=document.getElementById('wKg'),lbEl=document.getElementById('wLb');
+ dateEl.value=todayISO();
+ const preview=()=>{const kg=parseFloat(kgEl.value);lbEl.textContent=Number.isFinite(kg)&&kg>0?kgToLbRounded(kg)+' lb':'— lb'};
+ kgEl.addEventListener('input',preview);
+ kgEl.addEventListener('keydown',e=>{if(e.key==='Enter')addWeight()});
+ document.getElementById('wAdd').addEventListener('click',addWeight);
+ preview();
+ renderWeights(loadWeights());
+})();
 </script>
 </body>
 </html>
