@@ -10,14 +10,22 @@ android {
         applicationId = "com.rafi.movementplan"
         minSdk = 26
         targetSdk = 36
-        versionCode = 4
-        versionName = "1.0.3"
+        versionCode = 5
+        versionName = "1.0.4"
     }
 
     // minSdk 26 disables JAR v1 by default. Email clients and some sideload
     // paths still expect a v1 signature alongside APK Signature Scheme v2/v3.
+    // The keystore is committed on purpose: cloud build VMs do not share
+    // ~/.android/debug.keystore, so a fresh machine key would block in-place
+    // updates. These are the public Android debug credentials, not a Play
+    // upload key.
     signingConfigs {
         getByName("debug") {
+            storeFile = rootProject.file("keystore/debug.keystore")
+            storePassword = "android"
+            keyAlias = "androiddebugkey"
+            keyPassword = "android"
             enableV1Signing = true
             enableV2Signing = true
             enableV3Signing = true
