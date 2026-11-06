@@ -5,7 +5,9 @@ Android app for the treadmill, strength, and digestion planner. The UI is `app/s
 - minSdk 26
 - targetSdk 36
 - compileSdk 37
-- versionName 1.0.1 (versionCode 2)
+- versionName 1.0.2 (versionCode 3)
+
+The Weight tab logs kilograms on the device, draws them as a line, and points the header weight and BMI gauge at the latest entry. Height stays 179 cm. The log starts empty.
 
 ## Build
 
